@@ -1,14 +1,14 @@
-import os
-import openai
-import faiss
-import numpy as np
 import base64
 import io
 import logging
-from flask import Flask, request, jsonify
+import os
+
+import faiss
+import numpy as np
+import openai
 from PyPDF2 import PdfReader
+from flask import Flask, request, jsonify
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
 
 # 从环境变量中获取 OpenAI API 密钥
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 index = None
 embeddings = OpenAIEmbeddings()
 texts = []  # 用于存储文档的文本
+
 
 def process_uploaded_pdf(file_content):
     """
@@ -62,10 +63,16 @@ def process_uploaded_pdf(file_content):
         logger.error(f"处理 PDF 文件时出错: {str(e)}")
         raise
 
+
 def retrieve_relevant_documents(question):
     """
     使用 FAISS 检索与问题相关的文档片段
     """
+    # 检查索引是否已经初始化
+    if index is None:
+        logger.error("FAISS 索引未初始化")
+        return "\n"
+
     logger.info(f"开始检索与问题相关的文档: {question}")
 
     try:
@@ -73,7 +80,7 @@ def retrieve_relevant_documents(question):
         question_embedding = embeddings.embed_query(question)
 
         # 在 FAISS 中进行检索
-        _, indices = index.search(np.array([question_embedding], dtype=np.float32), k=10)  # k=3表示返回最相关的3个片段
+        _, indices = index.search(np.array([question_embedding], dtype=np.float32), k=20)  # k=20表示返回最相关的3个片段
 
         # 获取检索到的文本
         relevant_texts = [texts[idx] for idx in indices[0]]  # 从 texts 中获取相应的文档片段
@@ -84,6 +91,7 @@ def retrieve_relevant_documents(question):
     except Exception as e:
         logger.error(f"检索相关文档时出错: {str(e)}")
         raise
+
 
 @app.route('/ask', methods=['POST'])
 def answer_question():
@@ -127,7 +135,7 @@ def answer_question():
                 {"role": "system", "content": "你是一个帮助小学学生解决学习问题的专业助手。"},
                 {"role": "user", "content": prompt},  # 将问题和检索到的文档作为上下文
             ],
-            temperature=0.7,  # 控制生成的随机性
+            temperature=0.1,  # 控制生成的随机性
             max_tokens=300,  # 限制回答的长度
         )
 
@@ -151,6 +159,7 @@ def answer_question():
         response_data = jsonify({"error": f"发生错误：{str(e)}"})
         response_data.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response_data, 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
