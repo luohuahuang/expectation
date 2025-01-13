@@ -2,6 +2,7 @@ import base64
 import io
 import logging
 import os
+import json
 
 import faiss
 import numpy as np
@@ -25,6 +26,44 @@ index = None
 embeddings = OpenAIEmbeddings()
 texts = []  # 用于存储文档的文本
 
+def save_faiss_index_and_texts():
+    """
+    保存 FAISS 索引和文本内容到磁盘
+    """
+    global index, texts
+    if index is not None:
+        faiss.write_index(index, "faiss_index.index")
+        logger.info("FAISS 索引已保存到磁盘")
+        # 保存 texts
+        with open("texts.json", "w", encoding="utf-8") as f:
+            json.dump(texts, f, ensure_ascii=False, indent=4)
+        logger.info("文本内容已保存到磁盘")
+    else:
+        logger.warning("索引为空，无法保存")
+
+def load_faiss_index_and_texts():
+    """
+    加载 FAISS 索引和文本内容
+    """
+    global index, texts
+    if os.path.exists("faiss_index.index"):
+        index = faiss.read_index("faiss_index.index")
+        logger.info("FAISS 索引已从磁盘加载")
+    else:
+        logger.info("未找到 FAISS 索引，开始新的索引初始化")
+
+    if os.path.exists("texts.json"):
+        with open("texts.json", "r", encoding="utf-8") as f:
+            texts = json.load(f)
+        logger.info("文本内容已从磁盘加载")
+    else:
+        logger.info("未找到文本内容，开始新的文本处理")
+
+def initialize_faiss_index_and_texts():
+    """
+    在 Flask 应用的第一个请求之前，加载 FAISS 索引和文本内容
+    """
+    load_faiss_index_and_texts()
 
 def process_uploaded_pdf(file_content):
     """
@@ -57,12 +96,14 @@ def process_uploaded_pdf(file_content):
         index = faiss.IndexFlatL2(dimension)
         index.add(np.array(embeddings_list, dtype=np.float32))
 
+        # 保存索引和文本到磁盘
+        save_faiss_index_and_texts()
+
         logger.info("PDF 文档处理完成并生成 FAISS 索引")
 
     except Exception as e:
         logger.error(f"处理 PDF 文件时出错: {str(e)}")
         raise
-
 
 def retrieve_relevant_documents(question):
     """
@@ -91,7 +132,6 @@ def retrieve_relevant_documents(question):
     except Exception as e:
         logger.error(f"检索相关文档时出错: {str(e)}")
         raise
-
 
 @app.route('/ask', methods=['POST'])
 def answer_question():
@@ -162,4 +202,6 @@ def answer_question():
 
 
 if __name__ == "__main__":
+    # 在启动时加载 FAISS 索引和文本内容
+    load_faiss_index_and_texts()
     app.run(debug=True, host="0.0.0.0", port=5000)
