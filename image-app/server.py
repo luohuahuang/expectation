@@ -23,16 +23,16 @@ def analyze_image():
 
     # Getting the base64 string
     base64_image = encode_image(image_path)
-
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
+            {"role": "system", "content": "你是一位优秀的小学老师，你在辅导小学生写作业方面有丰富的经验。"},
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "text",
-                        "text": "图片里面包含了什么内容？请问可以总结一下图片里面的内容，然后也用表格的格式展示所包含的原始内容",
+                        "text": "这种图片的内容是一个小学生的家庭作业。\n图片里面包含了什么内容？请问可以总结一下图片里面的内容。\n具体分析一下里面有哪些题目是做错的？对于做错的题目，最好可以提出学习的建议\n。回答的最后，请用可读性比较强的方式（比如表格）展示所包含的原始内容",
                     },
                     {
                         "type": "image_url",

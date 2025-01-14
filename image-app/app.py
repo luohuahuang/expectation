@@ -17,7 +17,8 @@ iface = gr.Interface(
     fn=analyze_image_with_flask,
     inputs=gr.Image(type="filepath"),  # Change to "filepath"
     outputs="text",
-    live=True
+    live=False,  # Set live=False so that analysis only happens on submit
+    allow_flagging="never",  # Optionally disable flagging if not needed
 )
 
 # Launch the Gradio interface
