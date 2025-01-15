@@ -1,11 +1,26 @@
 import gradio as gr
 import requests
+from PIL import Image
+import io
+
+
+# 压缩图片质量函数
+def compress_image_quality(image_file, quality=80):
+    img = Image.open(image_file)
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='JPEG', quality=quality)
+    img_byte_arr.seek(0)
+    return img_byte_arr
 
 
 # 发送图片到 Flask 服务进行分析的函数
 def analyze_image_with_flask(image):
+    # 压缩图片
+    compressed_image = compress_image_quality(image, quality=75)
+
+    # 将压缩后的图片传给 Flask 服务
     url = "http://localhost:5000/analyze_image"
-    files = {"image": open(image, "rb")}
+    files = {"image": compressed_image}
     response = requests.post(url, files=files)
 
     if response.status_code == 200:
