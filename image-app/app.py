@@ -1,11 +1,6 @@
 import gradio as gr
 import requests
-from openai import OpenAI
-import os
 
-# OpenAI 客户端设置
-client = OpenAI()
-client.api_key = os.getenv("OPENAI_API_KEY")
 
 # 发送图片到 Flask 服务进行分析的函数
 def analyze_image_with_flask(image):
@@ -19,35 +14,23 @@ def analyze_image_with_flask(image):
     else:
         return "错误：无法处理图片"
 
-# 处理 GPT 聊天的函数
-def chat_with_gpt(history, user_message, analysis_result):
-    if history is None:
-        history = []
 
-    # 将分析结果作为系统的初始消息
-    messages = [
-        {"role": "system", "content": f"你是一个帮助学生做作业的助手。分析结果是：{analysis_result}"}
-    ]
+# 发送请求到 Flask 后端处理 GPT 聊天
+def chat_with_gpt_api(history, user_message, analysis_result):
+    url = "http://localhost:5000/chat"
+    data = {
+        "history": history,
+        "user_message": user_message,
+        "analysis_result": analysis_result
+    }
+    response = requests.post(url, json=data)
 
-    # 添加之前的聊天记录
-    for sender, message in history:
-        role = "user" if sender == "user" else "assistant"
-        messages.append({"role": role, "content": message})
+    if response.status_code == 200:
+        result = response.json()
+        return result["history"], ""  # 返回聊天记录和清空输入框
+    else:
+        return "Error: Unable to process the request", ""
 
-    # 添加用户的消息到对话中
-    messages.append({"role": "user", "content": user_message})
-
-    # 调用 OpenAI 的 API
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=messages
-    )
-    gpt_reply = response.choices[0].message.content
-
-    # 将用户的消息和 GPT 的回复添加到聊天记录中
-    history.append(("assistant", gpt_reply))
-
-    return history, ""  # 清空输入框
 
 # 定义 Gradio 界面
 with gr.Blocks() as demo:
@@ -88,7 +71,7 @@ with gr.Blocks() as demo:
 
     # 工作流程：GPT 聊天
     chat_button.click(
-        chat_with_gpt,
+        chat_with_gpt_api,
         inputs=[chatbot, chat_input, analysis_output],
         outputs=[chatbot, chat_input],
         show_progress='full'

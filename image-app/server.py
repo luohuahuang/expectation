@@ -50,6 +50,43 @@ def analyze_image():
     # Return the result as a JSON serializable string
     return jsonify({"analysis": analysis_content})
 
+# 处理 GPT 聊天的函数
+@app.route('/chat', methods=['POST'])
+def chat_with_gpt():
+    data = request.json
+    history = data.get("history", [])
+    user_message = data.get("user_message")
+    analysis_result = data.get("analysis_result")
+
+    if history is None:
+        history = []
+
+    # 将分析结果作为系统的初始消息
+    messages = [
+        {"role": "system", "content": f"你是一个帮助学生做作业的助手。分析结果是：{analysis_result}"}
+    ]
+
+    # 添加之前的聊天记录
+    for sender, message in history:
+        role = "user" if sender == "user" else "assistant"
+        messages.append({"role": role, "content": message})
+
+    # 添加用户的消息到对话中
+    if user_message:
+        messages.append({"role": "user", "content": user_message})
+
+    # 调用 OpenAI 的 API
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=messages
+    )
+    gpt_reply = response.choices[0].message.content
+
+    # 将用户的消息和 GPT 的回复添加到聊天记录中
+    history.append(("assistant", gpt_reply))
+
+    return jsonify({"history": history, "gpt_reply": gpt_reply})
+
 
 if __name__ == "__main__":
     app.run(debug=True)
