@@ -48,13 +48,28 @@ def chat_with_gpt_api(history, user_message, analysis_result):
 
 
 # 定义 Gradio 界面
-with gr.Blocks() as demo:
+with gr.Blocks(css="""
+#image-input .image-container {
+    width: 300px; /* 固定宽度 */
+    height: 300px; /* 固定高度 */
+    overflow: hidden; /* 隐藏溢出内容 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#image-input img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* 自适应图片显示 */
+}
+""") as demo:
     # 第一行：图片上传和分析
     with gr.Group():
         with gr.Row():
             # 左侧：上传图片的 dialog
             with gr.Column():
-                image_input = gr.Image(type="filepath", label="上传作业图片")
+                image_input = gr.Image(type="filepath", label="上传作业图片", elem_id="image-input")
 
             # 右侧：包含分析结果和提交按钮的 column
             with gr.Column():
