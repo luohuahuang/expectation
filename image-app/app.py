@@ -22,28 +22,31 @@ def analyze_image_with_flask(image):
 
 # Function to handle GPT chat
 def chat_with_gpt(history, user_message):
-    # Convert chat history into a format GPT can understand
-    messages = [{"role": "system", "content": "You are a helpful assistant who helps students with their homework."}]
-    for message in history:
-        role = "user" if message[0] else "assistant"
-        messages.append({"role": role, "content": message[1]})
+    # Ensure the history is a list of tuples [(sender, message), ...]
+    if history is None:
+        history = []
 
-    # Add the latest user message
+    # Construct messages for GPT
+    messages = [{"role": "system", "content": "You are a helpful assistant who helps students with their homework."}]
+    for sender, message in history:
+        role = "user" if sender == "user" else "assistant"
+        messages.append({"role": role, "content": message})
+
+    # Add the user's new message
     messages.append({"role": "user", "content": user_message})
 
-    # Call OpenAI GPT API
+    # Call OpenAI's API
     response = client.chat.completions.create(
-        model="gpt-4",  # Use your desired GPT model
+        model="gpt-4",  # Use your preferred model
         messages=messages
     )
     gpt_reply = response.choices[0].message.content
 
-    # Update chat history
-    history.append((True, user_message))  # User message
-    history.append((False, gpt_reply))  # GPT response
+    # Append the user's message and GPT's reply to the history
+    history.append(("user", user_message))  # Add user's input
+    history.append(("assistant", gpt_reply))  # Add GPT's response
 
-    return history, gpt_reply
-
+    return history, ""  # Clear the input box
 
 # Define the Gradio interface
 with gr.Blocks() as demo:
