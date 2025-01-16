@@ -1,36 +1,8 @@
 import io
-import sqlite3
 
 import gradio as gr
 import requests
 from PIL import Image
-
-
-# 数据库初始化
-def initialize_database():
-    conn = sqlite3.connect("results.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS analysis_results (
-            uid INTEGER PRIMARY KEY AUTOINCREMENT,
-            analysis_result TEXT NOT NULL,
-            utime TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
-# 保存分析结果到数据库
-def save_analysis_result(analysis_result):
-    if not analysis_result.strip():
-        return "分析结果为空，无法保存！"
-    conn = sqlite3.connect("results.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO analysis_results (analysis_result) VALUES (?)", (analysis_result,))
-    conn.commit()
-    conn.close()
-    return "分析结果已保存成功！"
 
 
 # 压缩图片质量函数
@@ -59,6 +31,18 @@ def analyze_image_with_flask(image):
         return "错误：无法处理图片"
 
 
+# 发送请求到 Flask 后端保存分析结果
+def save_analysis_with_flask(analysis_result):
+    url = "http://localhost:5000/save_analysis"
+    data = {"analysis_result": analysis_result}
+    response = requests.post(url, json=data)
+
+    if response.status_code == 200:
+        return response.json().get("message", "分析结果保存成功！")
+    else:
+        return response.json().get("message", "分析结果保存失败！")
+
+
 # 发送请求到 Flask 后端处理 GPT 聊天
 def chat_with_gpt_api(history, user_message, analysis_result):
     url = "http://localhost:5000/chat"
@@ -75,9 +59,6 @@ def chat_with_gpt_api(history, user_message, analysis_result):
     else:
         return "Error: Unable to process the request", ""
 
-
-# 初始化数据库
-initialize_database()
 
 # 定义 Gradio 界面
 with gr.Blocks(css="""
@@ -133,7 +114,7 @@ with gr.Blocks(css="""
     submit_button.click(analyze_image_with_flask, inputs=image_input, outputs=analysis_output)
 
     # Save button logic
-    save_button.click(save_analysis_result, inputs=analysis_output, outputs=analysis_output)
+    save_button.click(save_analysis_with_flask, inputs=analysis_output, outputs=analysis_output)
 
     # 工作流程：GPT 聊天
     chat_button.click(
