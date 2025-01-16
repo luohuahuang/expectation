@@ -1,6 +1,7 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string, redirect
 import base64
 import os
+import sqlite3
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -9,10 +10,30 @@ app = Flask(__name__)
 client = OpenAI()
 client.api_key = os.getenv("OPENAI_API_KEY")
 
+
+# Initialize SQLite database
+def initialize_database():
+    conn = sqlite3.connect("results.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS analysis_results (
+            uid INTEGER PRIMARY KEY AUTOINCREMENT,
+            analysis_result TEXT NOT NULL,
+            utime TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+initialize_database()
+
+
 # Function to encode the image
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
+
 
 # Route for image upload and processing
 @app.route("/analyze_image", methods=["POST"])
@@ -49,6 +70,77 @@ def analyze_image():
 
     # Return the result as a JSON serializable string
     return jsonify({"analysis": analysis_content})
+
+
+# Route for saving analysis results
+@app.route("/save_analysis", methods=["POST"])
+def save_analysis():
+    data = request.json
+    analysis_result = data.get("analysis_result")
+    if not analysis_result:
+        return jsonify({"message": "分析结果为空，无法保存！"}), 400
+
+    conn = sqlite3.connect("results.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO analysis_results (analysis_result) VALUES (?)", (analysis_result,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "分析结果保存成功！"})
+
+
+# CRUD 操作页面
+@app.route("/history", methods=["GET", "POST"])
+def history():
+    conn = sqlite3.connect("results.db")
+    cursor = conn.cursor()
+
+    if request.method == "POST":
+        # Handle delete operation
+        uid = request.form.get("delete_uid")
+        if uid:
+            cursor.execute("DELETE FROM analysis_results WHERE uid = ?", (uid,))
+            conn.commit()
+
+    cursor.execute("SELECT uid, analysis_result, utime FROM analysis_results ORDER BY utime DESC")
+    rows = cursor.fetchall()
+    conn.close()
+
+    # Render HTML template
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>分析结果历史记录</title>
+    </head>
+    <body>
+        <h1>分析结果历史记录</h1>
+        <table border="1">
+            <tr>
+                <th>ID</th>
+                <th>分析结果</th>
+                <th>更新时间</th>
+                <th>操作</th>
+            </tr>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row[0] }}</td>
+                <td>{{ row[1] }}</td>
+                <td>{{ row[2] }}</td>
+                <td>
+                    <form method="post">
+                        <input type="hidden" name="delete_uid" value="{{ row[0] }}">
+                        <button type="submit">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <a href="/">返回 Gradio 界面</a>
+    </body>
+    </html>
+    """
+    return render_template_string(html, rows=rows)
+
 
 # 处理 GPT 聊天的函数
 @app.route('/chat', methods=['POST'])

@@ -1,7 +1,36 @@
+import io
+import sqlite3
+
 import gradio as gr
 import requests
 from PIL import Image
-import io
+
+
+# 数据库初始化
+def initialize_database():
+    conn = sqlite3.connect("results.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS analysis_results (
+            uid INTEGER PRIMARY KEY AUTOINCREMENT,
+            analysis_result TEXT NOT NULL,
+            utime TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+# 保存分析结果到数据库
+def save_analysis_result(analysis_result):
+    if not analysis_result.strip():
+        return "分析结果为空，无法保存！"
+    conn = sqlite3.connect("results.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO analysis_results (analysis_result) VALUES (?)", (analysis_result,))
+    conn.commit()
+    conn.close()
+    return "分析结果已保存成功！"
 
 
 # 压缩图片质量函数
@@ -47,6 +76,9 @@ def chat_with_gpt_api(history, user_message, analysis_result):
         return "Error: Unable to process the request", ""
 
 
+# 初始化数据库
+initialize_database()
+
 # 定义 Gradio 界面
 with gr.Blocks(css="""
 #image-input .image-container {
@@ -77,8 +109,9 @@ with gr.Blocks(css="""
                     # 右上角：分析结果 dialog
                     analysis_output = gr.Textbox(label="分析结果")
                 with gr.Row():
-                    # 右下角：提交按钮
+                    # 右下角：提交和保存按钮
                     submit_button = gr.Button("提交")
+                    save_button = gr.Button("保存")
 
     # 第二行：作业分析与聊天
     with gr.Group():
@@ -99,6 +132,9 @@ with gr.Blocks(css="""
     # 工作流程：图片分析
     submit_button.click(analyze_image_with_flask, inputs=image_input, outputs=analysis_output)
 
+    # Save button logic
+    save_button.click(save_analysis_result, inputs=analysis_output, outputs=analysis_output)
+
     # 工作流程：GPT 聊天
     chat_button.click(
         chat_with_gpt_api,
@@ -108,4 +144,4 @@ with gr.Blocks(css="""
     )
 
 # 启动 Gradio 应用
-demo.launch()
+demo.launch(share=True)
