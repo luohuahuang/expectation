@@ -123,9 +123,9 @@ def history():
             </tr>
             {% for row in rows %}
             <tr>
-                <td>{{ row[0] }}</td>
-                <td>{{ row[1] }}</td>
-                <td>{{ row[2] }}</td>
+                <td style="white-space: pre-wrap;">{{ row[0] }}</td>
+                <td style="white-space: pre-wrap;">{{ row[1] }}</td>
+                <td style="white-space: pre-wrap;">{{ row[2] }}</td>
                 <td>
                     <form method="post">
                         <input type="hidden" name="delete_uid" value="{{ row[0] }}">
