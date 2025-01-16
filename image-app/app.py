@@ -1,5 +1,4 @@
 import io
-
 import gradio as gr
 import requests
 from PIL import Image
@@ -38,7 +37,7 @@ def save_analysis_with_flask(analysis_result):
     response = requests.post(url, json=data)
 
     if response.status_code == 200:
-        return response.json().get("message", "分析结果保存成功！")
+        return response.json().get("message", "分析结果保存成功！")  # 返回保存消息和分析结果
     else:
         return response.json().get("message", "分析结果保存失败！")
 
@@ -93,6 +92,7 @@ with gr.Blocks(css="""
                     # 右下角：提交和保存按钮
                     submit_button = gr.Button("提交")
                     save_button = gr.Button("保存")
+                    save_message = gr.HTML(value="", visible=False)  # 初始化时不设置 visible=False
 
     # 第二行：作业分析与聊天
     with gr.Group():
@@ -114,7 +114,14 @@ with gr.Blocks(css="""
     submit_button.click(analyze_image_with_flask, inputs=image_input, outputs=analysis_output)
 
     # Save button logic
-    save_button.click(save_analysis_with_flask, inputs=analysis_output, outputs=analysis_output)
+    save_button.click(save_analysis_with_flask, inputs=analysis_output, outputs=[save_message])
+
+    # 使用 gr.update() 更新 HTML 组件的值和可见性
+    save_button.click(
+        lambda message: gr.update(value=message, visible=True),
+        inputs=analysis_output,
+        outputs=save_message
+    )
 
     # 工作流程：GPT 聊天
     chat_button.click(
